@@ -1,0 +1,43 @@
+name: Call orbitedge-planner.jsx
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "orbitedge-planner.jsx"
+      - "orbitedge-planner.jsx.txt"
+      - ".github/workflows/call-orbitedge-planner.yml"
+
+jobs:
+  call-jsx-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Normalize JSX filename
+        run: |
+          if [ -f "orbitedge-planner.jsx" ]; then
+            echo "orbitedge-planner.jsx found"
+          elif [ -f "orbitedge-planner.jsx.txt" ]; then
+            cp orbitedge-planner.jsx.txt orbitedge-planner.jsx
+            echo "Copied orbitedge-planner.jsx.txt -> orbitedge-planner.jsx"
+          else
+            echo "orbitedge-planner.jsx not found" >&2
+            exit 1
+          fi
+
+      - name: Call orbitedge-planner.jsx (bundle check)
+        run: npx --yes esbuild orbitedge-planner.jsx --bundle --format=esm --outfile=dist/orbitedge-planner.js
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbitedge-planner-bundle
+          path: dist/orbitedge-planner.js
