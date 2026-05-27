@@ -1,0 +1,82 @@
+name: Deploy OrbitEdge Planner to Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build static site
+        run: |
+          mkdir -p src dist/assets
+
+          cp orbitedge-planner.jsx src/orbitedge-planner.jsx
+
+          cat > src/main.jsx << 'EOF'
+          import React from "react";
+          import { createRoot } from "react-dom/client";
+          import App from "./orbitedge-planner.jsx";
+
+          createRoot(document.getElementById("root")).render(
+            <React.StrictMode>
+              <App />
+            </React.StrictMode>
+          );
+          EOF
+
+          cat > dist/index.html << 'EOF'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>OrbitEdge Planner</title>
+            </head>
+            <body>
+              <div id="root"></div>
+              <script type="module" src="./assets/main.js"></script>
+            </body>
+          </html>
+          EOF
+
+          npm init -y
+          npm install react react-dom esbuild
+          npx esbuild src/main.jsx --bundle --minify --outfile=dist/assets/main.js
+
+          touch dist/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
