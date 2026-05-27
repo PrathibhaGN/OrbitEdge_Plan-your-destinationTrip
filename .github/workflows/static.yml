@@ -1,82 +1,43 @@
-name: Deploy OrbitEdge Planner to Pages
+name: Call orbitedge-planner.jsx
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  push:
+    paths:
+      - "orbitedge-planner.jsx"
+      - "orbitedge-planner.jsx.txt"
+      - ".github/workflows/call-orbitedge-planner.yml"
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  call-jsx-file:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Build static site
+      - name: Normalize JSX filename
         run: |
-          mkdir -p src dist/assets
+          if [ -f "orbitedge-planner.jsx" ]; then
+            echo "orbitedge-planner.jsx found"
+          elif [ -f "orbitedge-planner.jsx.txt" ]; then
+            cp orbitedge-planner.jsx.txt orbitedge-planner.jsx
+            echo "Copied orbitedge-planner.jsx.txt -> orbitedge-planner.jsx"
+          else
+            echo "orbitedge-planner.jsx not found" >&2
+            exit 1
+          fi
 
-          cp orbitedge-planner.jsx src/orbitedge-planner.jsx
+      - name: Call orbitedge-planner.jsx (bundle check)
+        run: npx --yes esbuild orbitedge-planner.jsx --bundle --format=esm --outfile=dist/orbitedge-planner.js
 
-          cat > src/main.jsx << 'EOF'
-          import React from "react";
-          import { createRoot } from "react-dom/client";
-          import App from "./orbitedge-planner.jsx";
-
-          createRoot(document.getElementById("root")).render(
-            <React.StrictMode>
-              <App />
-            </React.StrictMode>
-          );
-          EOF
-
-          cat > dist/index.html << 'EOF'
-          <!doctype html>
-          <html lang="en">
-            <head>
-              <meta charset="UTF-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>OrbitEdge Planner</title>
-            </head>
-            <body>
-              <div id="root"></div>
-              <script type="module" src="./assets/main.js"></script>
-            </body>
-          </html>
-          EOF
-
-          npm init -y
-          npm install react react-dom esbuild
-          npx esbuild src/main.jsx --bundle --minify --outfile=dist/assets/main.js
-
-          touch dist/.nojekyll
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: dist
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+          name: orbitedge-planner-bundle
+          path: dist/orbitedge-planner.js
